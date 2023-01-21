@@ -1,6 +1,7 @@
 import os
 import subprocess
 import textwrap
+from argparse import ArgumentParser
 from pathlib import Path
 from typing import Tuple
 
@@ -139,6 +140,11 @@ def create_commit_message(llm, structure_of_repo: str, diff: str, raw_commit_des
 
 if __name__ == "__main__":
     os.environ["OPENAI_API_KEY"] = API_KEY
+    parser = ArgumentParser()
+    parser.add_argument("-m", "--hint", dest="hint",
+                        default="changed according to diff")
+    args = parser.parse_args()
+
     llm = OpenAI(temperature=0.9, model_name="text-davinci-003",
                  max_tokens=500, top_p=1.0, frequency_penalty=0.0,
                  presence_penalty=0.0)
@@ -147,7 +153,6 @@ if __name__ == "__main__":
     directories = get_directories(REPO_PATH)
     structure_of_repo = describe_structure(llm, readme_summary, directories)
     diff = get_git_diff(REPO_PATH)
-    raw_commit_description = "refactored notebook to script as preperation to be a CLI tool"
     commit_message = create_commit_message(
-        llm, structure_of_repo, diff, raw_commit_description)
+        llm, structure_of_repo, diff, args.hint)
     print(commit_message)
