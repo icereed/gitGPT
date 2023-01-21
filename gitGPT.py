@@ -163,11 +163,21 @@ if __name__ == "__main__":
         # print the structure of the repo
         print(structure_of_repo.strip())
     diff = get_git_diff(REPO_PATH)
-    commit_message = create_commit_message(
-        llm, structure_of_repo, diff, args.hint)
-    if args.explain:
+
+    # create 3 commit message candidates and choose the best one
+    for index in range(3):
+        commit_message = create_commit_message(
+            llm, structure_of_repo, diff, args.hint)
         print("\n\n--- 📩 Commit message 📩 ---")
-    print(commit_message)
+        print(commit_message)
+        if index != 2:
+            print("\n\n--- 🤔 Is this a good commit message? 🤔 ---")
+            print("n = no, try again")
+            print("y = yes, use this commit message")
+            print("y/n?")
+            answer = input()
+            if answer == "y":
+                break
 
     with open(REPO_PATH + "/.git/gpt_commit", "w") as f:
         f.write(commit_message)
