@@ -1,7 +1,7 @@
 import os
 import subprocess
 import textwrap
-from argparse import ArgumentParser
+from argparse import ArgumentParser, BooleanOptionalAction
 from pathlib import Path
 from typing import Tuple
 
@@ -143,7 +143,13 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-m", "--hint", dest="hint",
                         default="changed according to diff")
+    parser.add_argument('--explain', action=BooleanOptionalAction)
     args = parser.parse_args()
+
+    # if explain mode is true, print it
+    if args.explain:
+        print(
+            "This is the explain mode.")
 
     llm = OpenAI(temperature=0.9, model_name="text-davinci-003",
                  max_tokens=500, top_p=1.0, frequency_penalty=0.0,
@@ -152,7 +158,18 @@ if __name__ == "__main__":
     readme_summary = summarize_readme(llm, readme)
     directories = get_directories(REPO_PATH)
     structure_of_repo = describe_structure(llm, readme_summary, directories)
+    if args.explain:
+        print("\n\n--- 🤔 Assuming this context  🤔 ---")
+        # print the structure of the repo
+        print(structure_of_repo.strip())
     diff = get_git_diff(REPO_PATH)
     commit_message = create_commit_message(
         llm, structure_of_repo, diff, args.hint)
+    if args.explain:
+        print("\n\n--- 📩 Commit message 📩 ---")
     print(commit_message)
+
+    with open(REPO_PATH + "/.git/gpt_commit", "w") as f:
+        f.write(commit_message)
+        print("\n\n💾 Commit message written to .git/gpt_commit")
+        print("You can now commit with `git commit -F .git/gpt_commit`")
