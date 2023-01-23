@@ -54,10 +54,10 @@ def summarize_readme(llm, readme: str) -> str:
 
     readme_summary = llm(summarize_readme_prompt.format(
         readme=textwrap.shorten(readme, width=6000, placeholder="...")))
-    return readme_summary
+    return readme_summary.strip()
 
 
-def describe_structure(llm, readme_summary: str, directories: str) -> str:
+def generate_structure_of_repo(llm, readme_summary: str, directories: str) -> str:
     template = """
     I want you to act as an expert software developer and product owner.
 
@@ -85,7 +85,7 @@ def describe_structure(llm, readme_summary: str, directories: str) -> str:
 
     structure_of_repo = llm(describe_structure_prompt.format(
         readme_summary=readme_summary, directories=directories))
-    return structure_of_repo
+    return structure_of_repo.strip()
 
 
 def format_git_commit_message(commit_message: str) -> str:
@@ -180,6 +180,30 @@ def get_readme_summary(path: str, cache_file: str, llm) -> str:
     return readme_summary
 
 
+def describe_repo_structure(path: str, readme_summary: str, cache_file: str, llm):
+    # use same caching mechanism as for readme summary
+    directories = get_directories(REPO_PATH)
+    directories_hash = hashlib.sha256(directories.encode()).hexdigest()
+    if os.path.exists(cache_file):
+        try:
+            cache = read_cache(cache_file)
+            # check if directories_hash key exists in cache
+            if "directories_hash" in cache and "structure_of_repo" in cache and cache["directories_hash"] == directories_hash:
+                structure_of_repo = cache["structure_of_repo"]
+            else:
+                structure_of_repo = generate_structure_of_repo(
+                    llm, readme_summary, directories)
+                cache["directories_hash"] = directories_hash
+                cache["structure_of_repo"] = structure_of_repo
+                write_cache(cache_file, cache)
+        except (FileNotFoundError, json.decoder.JSONDecodeError):
+            structure_of_repo = generate_structure_of_repo(
+                llm, readme_summary, directories)
+            write_cache(
+                cache_file, {"directories_hash": directories_hash, "structure_of_repo": structure_of_repo})
+    return structure_of_repo
+
+
 if __name__ == "__main__":
     os.environ["OPENAI_API_KEY"] = API_KEY
     parser = ArgumentParser()
@@ -200,8 +224,8 @@ if __name__ == "__main__":
     readme_summary = get_readme_summary(
         Path(REPO_PATH) / "README.md", cache_file, llm)
 
-    directories = get_directories(REPO_PATH)
-    structure_of_repo = describe_structure(llm, readme_summary, directories)
+    structure_of_repo = describe_repo_structure(
+        REPO_PATH, readme_summary, cache_file, llm)
     if args.explain:
         print("\n\n--- 🤔 Assuming this context  🤔 ---")
         # print the structure of the repo
