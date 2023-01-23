@@ -1,3 +1,5 @@
+import hashlib
+import json
 import os
 import subprocess
 import textwrap
@@ -113,13 +115,18 @@ def create_commit_message(llm, structure_of_repo: str, diff: str, raw_commit_des
     {diff}
     ########
 
-    Raw commit description: "{raw_commit_description}"
+    {raw_commit_description}
 
     Prompt: "Create a professional commit message describing this change. Keep the description accurate and to the point. Describe also the impact of this change.
     The first line must be a summary not longer than 72 characters. Include the detailed description below the title. Use
     Conventional Commit messages."
     Answer:
     """
+
+    # if raw_commit_description is empty, use the default prompt
+    if raw_commit_description != "":
+        raw_commit_description = template.replace(
+            "Raw commit description: \"{raw_commit_description}\"", "")
 
     commit_message_prompt = PromptTemplate(
         input_variables=["structure_of_repo",
@@ -138,11 +145,45 @@ def create_commit_message(llm, structure_of_repo: str, diff: str, raw_commit_des
     )
 
 
+def read_cache(cache_file: str) -> dict:
+    with open(cache_file, "r") as f:
+        return json.load(f)
+
+
+def write_cache(cache_file: str, data: dict):
+    os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+    with open(cache_file, "w") as f:
+        json.dump(data, f)
+
+
+def get_readme_summary(path: str, cache_file: str, llm) -> str:
+    readme = read_file(path)
+    readme_hash = hashlib.sha256(readme.encode()).hexdigest()
+    if os.path.exists(cache_file):
+        try:
+            cache = read_cache(cache_file)
+            if cache["readme_hash"] == readme_hash:
+                readme_summary = cache["readme_summary"]
+            else:
+                readme_summary = summarize_readme(llm, readme)
+                cache["readme_hash"] = readme_hash
+                cache["readme_summary"] = readme_summary
+                write_cache(cache_file, cache)
+        except (FileNotFoundError, json.decoder.JSONDecodeError):
+            readme_summary = summarize_readme(llm, readme)
+            write_cache(
+                cache_file, {"readme_hash": readme_hash, "readme_summary": readme_summary})
+    else:
+        readme_summary = summarize_readme(llm, readme)
+        write_cache(
+            cache_file, {"readme_hash": readme_hash, "readme_summary": readme_summary})
+    return readme_summary
+
+
 if __name__ == "__main__":
     os.environ["OPENAI_API_KEY"] = API_KEY
     parser = ArgumentParser()
-    parser.add_argument("-m", "--hint", dest="hint",
-                        default="changed according to diff")
+    parser.add_argument("-m", "--hint", dest="hint", default="")
     parser.add_argument('--explain', action=BooleanOptionalAction)
     args = parser.parse_args()
 
@@ -154,8 +195,11 @@ if __name__ == "__main__":
     llm = OpenAI(temperature=0.9, model_name="text-davinci-003",
                  max_tokens=500, top_p=1.0, frequency_penalty=0.0,
                  presence_penalty=0.0)
-    readme = read_file(Path(REPO_PATH) / "README.md")
-    readme_summary = summarize_readme(llm, readme)
+
+    cache_file = os.path.expanduser("~/.gitgpt/cache.json")
+    readme_summary = get_readme_summary(
+        Path(REPO_PATH) / "README.md", cache_file, llm)
+
     directories = get_directories(REPO_PATH)
     structure_of_repo = describe_structure(llm, readme_summary, directories)
     if args.explain:
