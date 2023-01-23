@@ -21,7 +21,7 @@ def read_file(file_path: str) -> str:
 
 def get_directories(path: str) -> str:
     directories = subprocess.check_output(
-        f"cd {path}/; find . -type d | grep -v '.git'", shell=True).decode("utf-8")
+        f"cd {path}/; git ls-files | xargs dirname | sort | uniq", shell=True).decode("utf-8")
     return directories
 
 
@@ -33,18 +33,18 @@ def get_git_diff(path: str) -> str:
 
 def summarize_readme(llm, readme: str) -> str:
     template = """
-    I want you to act as an expert software developer and product owner.
+I want you to act as an expert software developer and product owner.
 
-    I will present you a README.
-    The contents of the text are surrounded by the string "######".
+I will present you a README.
+The contents of the text are surrounded by the string "######".
 
-    README:
-    ######
-    {readme}
-    ######
+README:
+######
+{readme}
+######
 
-    Prompt: "Summarize the contents of the README. Keep the summary short and to the point."
-    Answer:
+Prompt: "Summarize the contents of the README. Keep the summary short and to the point."
+Answer:
     """
 
     summarize_readme_prompt = PromptTemplate(
@@ -59,23 +59,23 @@ def summarize_readme(llm, readme: str) -> str:
 
 def generate_structure_of_repo(llm, readme_summary: str, directories: str) -> str:
     template = """
-    I want you to act as an expert software developer and product owner.
+I want you to act as an expert software developer and product owner.
 
-    I will present you a summary of the README and a list of directories of a git repository.
-    The contents of those texts are surrounded by the string "######".
+I will present you a summary of the README and a list of directories of a git repository.
+The contents of those texts are surrounded by the string "######".
 
-    Summary of README:
-    ######
-    {readme_summary}
-    ######
+Summary of README:
+######
+{readme_summary}
+######
 
-    List of directories:
-    ######
-    {directories}
-    ######
+List of directories:
+######
+{directories}
+######
 
-    Prompt: "Describe the structure of this repository and what it does. Include a list of frameworks used. Keep the summary short and to the point."
-    Answer:
+Prompt: "Describe the structure of this repository and what it does. Include a list of frameworks used. Keep the summary short and to the point."
+Answer:
     """
 
     describe_structure_prompt = PromptTemplate(
@@ -102,28 +102,27 @@ def format_git_commit_message(commit_message: str) -> str:
 
 def create_commit_message(llm, structure_of_repo: str, diff: str, raw_commit_description: str) -> str:
     template = """
-    I want you to act as an expert software developer.
+I want you to act as an expert software developer.
 
-    I will present you a git diff from a commit surrounded by the string "########".
-    This commit is done in a git repository.
+I will present you a git diff from a commit surrounded by the string "########".
+This commit is done in a git repository.
 
-    This is the structure of the repository:
-    {structure_of_repo}
+This is the structure of the repository:
+{structure_of_repo}
 
-    Git diff:
-    ########
-    {diff}
-    ########
+Git diff:
+########
+{diff}
+########
 
-    {raw_commit_description}
+{raw_commit_description}
 
-    Prompt: "Create a professional commit message describing this change. Keep the description accurate and to the point. Describe also the impact of this change.
-    The first line must be a summary not longer than 72 characters. Include the detailed description below the title. Use
-    Conventional Commit messages."
-    Answer:
-    """
+Prompt: "Create a professional commit message describing this change. Keep the description accurate and to the point. Describe also the impact of this change.
+The first line must be a summary not longer than 72 characters. Include the detailed description below the title. Use
+Conventional Commit messages."
+Answer:
+"""
 
-    # if raw_commit_description is empty, use the default prompt
     if raw_commit_description != "":
         raw_commit_description = template.replace(
             "Raw commit description: \"{raw_commit_description}\"", "")
@@ -134,13 +133,15 @@ def create_commit_message(llm, structure_of_repo: str, diff: str, raw_commit_des
         template=template,
     )
 
+    prompt = commit_message_prompt.format(
+        structure_of_repo=structure_of_repo,
+        diff=textwrap.shorten(diff, width=5500, placeholder="..."),
+        raw_commit_description=raw_commit_description
+    )
+
     return format_git_commit_message(
         llm(
-            commit_message_prompt.format(
-                structure_of_repo=structure_of_repo,
-                diff=textwrap.shorten(diff, width=5500, placeholder="..."),
-                raw_commit_description=raw_commit_description
-            )
+            prompt
         )
     )
 
@@ -204,7 +205,7 @@ def describe_repo_structure(path: str, readme_summary: str, cache_file: str, llm
     return structure_of_repo
 
 
-if __name__ == "__main__":
+def main():
     os.environ["OPENAI_API_KEY"] = API_KEY
     parser = ArgumentParser()
     parser.add_argument("-m", "--hint", dest="hint", default="")
@@ -251,3 +252,7 @@ if __name__ == "__main__":
         f.write(commit_message)
         print("\n\n💾 Commit message written to .git/gpt_commit")
         print("You can now commit with `git commit -F .git/gpt_commit`")
+
+
+if __name__ == "__main__":
+    main()
