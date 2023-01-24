@@ -11,8 +11,8 @@ To install gitGPT, please follow these steps:
 ```sh
 git clone https://github.com/icereed/gitGPT.git
 cd gitGPT
-pip install openai
-pip install langchain
+pip3 install openai
+pip3 install langchain
 ```
 
 In order to use gitGPT easily, you can create an alias to the `gitGPT.py` script in your `~/.zshrc` file:
