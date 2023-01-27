@@ -214,6 +214,12 @@ Answer:
 
 	rendered := fmt.Sprintf(template, rawCommitDescription, structureOfRepo, diff)
 
+	data := []byte(rendered)
+	err := ioutil.WriteFile("prompt.txt", data, 0666) // For debugging
+
+	if err != nil {
+		log.Fatal(err)
+	}
 	completionRequest := gpt3.CompletionRequest{
 		Prompt:      []string{rendered},
 		Temperature: gpt3.Float32Ptr(0.9),
