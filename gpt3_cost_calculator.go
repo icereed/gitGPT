@@ -1,14 +1,19 @@
 package main
 
 import (
-	"math"
-	"strings"
+	gptTokenizer "github.com/wbrown/gpt_bpe"
 )
 
 func getNumTokens(sentence string) int {
-	return int(math.Ceil((float64(len(sentence)) - float64(strings.Count(sentence, " "))) / 1.4))
+	tokenizer := gptTokenizer.NewGPT2Encoder()
+	return len(*tokenizer.Encode(&sentence))
 }
 
-func getNumChars(numTokens int) int {
-	return int(math.Floor(float64(numTokens) * 1.5))
+func shortenToTokens(sentence string, tokens int) string {
+	tokenizer := gptTokenizer.NewGPT2Encoder()
+	encoded := *(tokenizer.Encode(&sentence))
+	if len(encoded) > tokens {
+		encoded = encoded[:tokens]
+	}
+	return tokenizer.Decode(&encoded)
 }

@@ -189,17 +189,11 @@ Answer:
 
 	tokensLeftForDiff := MAX_TOKEN_DAVINCI - (tokensWithoutDiff + outputTokens)
 
-	charactersLeftForDiff := getNumChars(tokensLeftForDiff)
-
 	fmt.Printf("Tokens left for diff: %d\n", tokensLeftForDiff)
-	fmt.Printf("Len of diff: %d\n", len(diff))
 
 	// shorten the diff to the number of characters left
-	if len(diff) > charactersLeftForDiff {
-		diff = diff[:charactersLeftForDiff]
-	}
-
-	fmt.Printf("Len of shortened diff: %d\n", len(diff))
+	diff = shortenToTokens(diff, tokensLeftForDiff)
+	fmt.Printf("Tokens of shortened diff: %d\n", getNumTokens(diff))
 
 	rendered := fmt.Sprintf(template, rawCommitDescription, structureOfRepo, diff)
 	tokensWithDiff := getNumTokens(rendered)
