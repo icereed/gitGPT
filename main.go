@@ -145,6 +145,46 @@ Answer:
 	return result, nil
 }
 
+func summarizeDiff(llm gpt3.Client, diff string) (string, error) {
+	template := `
+I want you to act as an expert software developer. I will present you a git diff.
+Your job is to explain the change file by file. Keep the explanation short and to the point.
+
+git diff:
+########
+%s
+########
+`
+	template = strings.TrimSpace(template)
+	tokensWithoutDiff := getNumTokens(fmt.Sprintf(template, ""))
+	outputTokens := 500
+
+	// Calculate the number of tokens needed for the diff
+	tokensLeftForDiff := MAX_TOKEN_DAVINCI - (tokensWithoutDiff + outputTokens)
+
+	// shorten the diff to the number of characters left
+	diff = shortenToTokens(diff, tokensLeftForDiff)
+
+	rendered := fmt.Sprintf(template, diff)
+	if cached, ok := cache.Get(rendered); ok {
+		fmt.Println("summarizeDiff: Using cached result")
+		return string(cached), nil
+	}
+	completionRequest := gpt3.CompletionRequest{
+		Prompt:      []string{rendered},
+		Temperature: gpt3.Float32Ptr(0.9),
+		MaxTokens:   gpt3.IntPtr(outputTokens),
+		Echo:        false,
+	}
+	resp, err := llm.Completion(context.Background(), completionRequest)
+	if err != nil {
+		return "", err
+	}
+	result := cleanString(resp.Choices[0].Text)
+	cache.Set(rendered, result)
+	return result, nil
+}
+
 // cleanString removes all non-letter characters except ".", ",", ";" or "!" at the beginning and end of the string
 func cleanString(s string) string {
 	// Replace all non-letter characters except ".", ",", ";" or "!" at the beginning and end of the string
@@ -185,11 +225,8 @@ I want you to act as an expert software developer. Your job is to create a git c
 This is the structure of the git repository:
 %s
 
-I will present you a git diff from a commit surrounded by the string "########".
-Git diff:
-########
+Changes:
 %s
-########
 
 Prompt: "Create a professional commit message describing this change. Keep the description accurate and to the point. Describe also the impact of this change.
 The first line must be a summary not longer than 72 characters. Don't include PR links. Use Conventional Commit messages."
@@ -264,21 +301,29 @@ func main() {
 		return
 	}
 
-	fmt.Printf("-------------\nSummary of README:\n%s\n", readmeSummary)
+	fmt.Printf("\nSummary of README:\n%s\n-------------\n", readmeSummary)
 
 	structureOfRepo, err := generateStructureOfRepo(llm, readmeSummary, directories)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	fmt.Printf("\nStructure of repo:\n%s\n-------------\n", structureOfRepo)
 
-	fmt.Printf("-------------\nStructure of repo:\n%s\n", structureOfRepo)
-
-	commitMessage, err := createCommitMessage(llm, structureOfRepo, diff, "reformat prompt for better gpt3 output")
+	// diff summary
+	diffSummary, err := summarizeDiff(llm, diff)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	fmt.Printf("-------------\nCommit message:\n%s\n", commitMessage)
+	fmt.Printf("\nSummary of diff:\n%s\n-------------\n", diffSummary)
+
+	commitMessage, err := createCommitMessage(llm, structureOfRepo, diffSummary, "")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Printf("\nCommit message:\n%s\n-------------\n", commitMessage)
 }
