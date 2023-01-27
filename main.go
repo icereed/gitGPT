@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,7 +17,10 @@ const (
 	API_KEY           = "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"
 	REPO_PATH         = "."
 	MAX_TOKEN_DAVINCI = 4097
+	CACHE_FILE        = "~/.gitgpt/cache"
 )
+
+var cache *Cache
 
 func readFile(filePath string) (string, error) {
 	file, err := os.Open(filePath)
@@ -70,6 +74,12 @@ Answer:
 `
 	// rendered template:
 	rendered := fmt.Sprintf(template, readme)
+
+	if cached, ok := cache.Get(rendered); ok {
+		fmt.Println("SummarizeReadme: Using cached result")
+		return string(cached), nil
+	}
+
 	// Summarize the readme here
 
 	completionRequest := gpt3.CompletionRequest{
@@ -84,8 +94,9 @@ Answer:
 	if err != nil {
 		return "", err
 	}
-
-	return cleanString(resp.Choices[0].Text), nil
+	result := cleanString(resp.Choices[0].Text)
+	cache.Set(rendered, result)
+	return result, nil
 }
 
 func generateStructureOfRepo(llm gpt3.Client, readmeSummary string, directories string) (string, error) {
@@ -110,6 +121,10 @@ Answer:
 `
 	// Generate structure of repo here
 	rendered := fmt.Sprintf(template, readmeSummary, directories)
+	if cached, ok := cache.Get(rendered); ok {
+		fmt.Println("generateStructureOfRepo: Using cached result")
+		return string(cached), nil
+	}
 	completionRequest := gpt3.CompletionRequest{
 		Prompt:      []string{rendered},
 		Temperature: gpt3.Float32Ptr(0.9),
@@ -120,7 +135,9 @@ Answer:
 	if err != nil {
 		return "", err
 	}
-	return cleanString(resp.Choices[0].Text), nil
+	result := cleanString(resp.Choices[0].Text)
+	cache.Set(rendered, result)
+	return result, nil
 }
 
 // cleanString removes all non-letter characters except ".", ",", ";" or "!" at the beginning and end of the string
@@ -181,23 +198,15 @@ Answer:
 	}
 
 	tokensWithoutDiff := getNumTokens(fmt.Sprintf(template, rawCommitDescription, structureOfRepo, ""))
-	fmt.Printf("Tokens without diff: %d\n", tokensWithoutDiff)
-
 	outputTokens := 500
 
 	// Calculate the number of tokens needed for the diff
-
 	tokensLeftForDiff := MAX_TOKEN_DAVINCI - (tokensWithoutDiff + outputTokens)
-
-	fmt.Printf("Tokens left for diff: %d\n", tokensLeftForDiff)
 
 	// shorten the diff to the number of characters left
 	diff = shortenToTokens(diff, tokensLeftForDiff)
-	fmt.Printf("Tokens of shortened diff: %d\n", getNumTokens(diff))
 
 	rendered := fmt.Sprintf(template, rawCommitDescription, structureOfRepo, diff)
-	tokensWithDiff := getNumTokens(rendered)
-	fmt.Printf("Tokens with diff: %d\n", tokensWithDiff)
 
 	completionRequest := gpt3.CompletionRequest{
 		Prompt:      []string{rendered},
@@ -213,7 +222,12 @@ Answer:
 }
 
 func main() {
-	// ctx := context.Background()
+	var err error
+	cache, err = NewCache(CACHE_FILE)
+	defer cache.Write()
+	if err != nil {
+		log.Fatalln(err)
+	}
 	llm := gpt3.NewClient(API_KEY, gpt3.WithDefaultEngine(gpt3.TextDavinci003Engine))
 
 	readme, err := readFile(filepath.Join(REPO_PATH, "README.md"))

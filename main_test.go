@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"os/user"
+	"testing"
+)
 
 func Test_cleanString(t *testing.T) {
 	testCases := []struct {
@@ -21,5 +24,29 @@ func Test_cleanString(t *testing.T) {
 		if output != test.expected {
 			t.Errorf("cleanString(%s) = %s, expected %s", test.input, output, test.expected)
 		}
+	}
+}
+
+func Test_expandPath(t *testing.T) {
+	usr, _ := user.Current()
+	dir := usr.HomeDir
+	type args struct {
+		pathToBeExpanded string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{"No expansion", args{"/bla/blub"}, "/bla/blub"},
+		{"Home expansion", args{"~/Hello World"}, dir + "/Hello World"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := expandPath(tt.args.pathToBeExpanded)
+			if got != tt.want {
+				t.Errorf("expandPath() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
