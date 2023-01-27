@@ -6,6 +6,7 @@ require (
 	github.com/PullRequestInc/go-gpt3 v1.1.11
 	github.com/minio/highwayhash v1.0.2
 	github.com/wbrown/gpt_bpe v0.0.0-20230123154542-a0fe11e56636
+	v.io/x/lib v0.1.12
 )
 
 require (

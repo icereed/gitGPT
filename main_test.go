@@ -17,6 +17,7 @@ func Test_cleanString(t *testing.T) {
 		{"1Hello World!", "Hello World!"},
 		{"###########\nHello World! \n ##########", "Hello World!"},
 		{"###########\nHello World. \n ##########", "Hello World."},
+		{"Hello World...", "Hello World..."},
 	}
 
 	for _, test := range testCases {

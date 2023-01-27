@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -11,6 +14,7 @@ import (
 	"strings"
 
 	gpt3 "github.com/PullRequestInc/go-gpt3"
+	"v.io/x/lib/textutil"
 )
 
 const (
@@ -143,41 +147,40 @@ Answer:
 // cleanString removes all non-letter characters except ".", ",", ";" or "!" at the beginning and end of the string
 func cleanString(s string) string {
 	// Replace all non-letter characters except ".", ",", ";" or "!" at the beginning and end of the string
-	re := regexp.MustCompile(`^[^a-zA-Z]*|[^a-zA-Z.,;!]*$`)
+	re := regexp.MustCompile(`^[^a-zA-Z]*|[^a-zA-Z\.,;!]*$`)
 	cleanedString := re.ReplaceAllString(s, "")
 	return strings.TrimSpace(cleanedString)
 }
 
 func formatGitCommitMessage(commitMessage string) string {
-	// Format the commit message here
-	// Make sure the first line is not longer than 72 characters
-	// Make sure the description is not longer than 80 characters
-	// Make sure the commit message is separated into a title and a description
-	// Make sure the title is written in imperative mood
-	// Make sure the title is written in the present tense
-	// Make sure the title is written in the active voice
-	// Make sure the title is written in the Conventional Commit format
-	// Make sure the description is written in the Conventional Commit format
-	return commitMessage
+	// io writer into string
+	var b bytes.Buffer
+	bytesWriter := bufio.NewWriter(&b)
+
+	w := textutil.NewUTF8WrapWriter(bytesWriter, 72)
+
+	r := strings.NewReader(commitMessage)
+	if _, err := io.Copy(w, r); err != nil {
+		fmt.Println(err)
+		return commitMessage
+	}
+
+	err := w.Flush()
+	if err != nil {
+		fmt.Println(err)
+		return commitMessage
+	}
+
+	bytesWriter.Flush()
+
+	return b.String()
 }
 
 func createCommitMessage(llm gpt3.Client, structureOfRepo string, diff string, rawCommitDescription string) (string, error) {
 	template := `
 I want you to act as an expert software developer.
 
-I will present you a git diff from a commit surrounded by the string "########" and you will create a git commit based on a prompt.
-Create a professional commit message describing this change.
-Keep the description accurate and to the point.
-Describe also the impact of this change.
-Make sure the first line is not longer than 72 characters
-Make sure the description is not longer than 80 characters
-Make sure the commit message is separated into a title and a description
-Make sure the title is written in imperative mood
-Make sure the title is written in the present tense
-Make sure the title is written in the active voice
-Make sure the title is written in the Conventional Commit format
-Make sure the description is written in the Conventional Commit format
-
+I will present you a git diff from a commit surrounded by the string "########".
 This commit is done in a git repository.
 
 %s
@@ -190,6 +193,9 @@ Git diff:
 %s
 ########
 
+Prompt: "Create a professional commit message describing this change. Keep the description accurate and to the point. Describe also the impact of this change.
+The first line must be a summary not longer than 72 characters. Include the detailed description below the title. Use
+Conventional Commit messages."
 Answer:
 `
 	// Create commit message here
@@ -218,7 +224,7 @@ Answer:
 	if err != nil {
 		return "", err
 	}
-	return cleanString(resp.Choices[0].Text), nil
+	return formatGitCommitMessage(cleanString(resp.Choices[0].Text)), nil
 }
 
 func main() {
