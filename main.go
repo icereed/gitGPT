@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -178,29 +179,26 @@ func formatGitCommitMessage(commitMessage string) string {
 
 func createCommitMessage(llm gpt3.Client, structureOfRepo string, diff string, rawCommitDescription string) (string, error) {
 	template := `
-I want you to act as an expert software developer.
+I want you to act as an expert software developer. Your job is to create a git commit message based on the input below.
+%s
+
+This is the structure of the git repository:
+%s
 
 I will present you a git diff from a commit surrounded by the string "########".
-This commit is done in a git repository.
-
-%s
-
-This is the structure of the repository:
-%s
-
 Git diff:
 ########
 %s
 ########
 
 Prompt: "Create a professional commit message describing this change. Keep the description accurate and to the point. Describe also the impact of this change.
-The first line must be a summary not longer than 72 characters. Include the detailed description below the title. Use
-Conventional Commit messages."
+The first line must be a summary not longer than 72 characters. Don't include PR links. Use Conventional Commit messages."
 Answer:
 `
+	template = strings.TrimSpace(template)
 	// Create commit message here
 	if rawCommitDescription != "" {
-		rawCommitDescription = fmt.Sprintf("This is the raw commit description: %s", rawCommitDescription)
+		rawCommitDescription = fmt.Sprintf("This is the raw commit description: \"%s\"", rawCommitDescription)
 	}
 
 	tokensWithoutDiff := getNumTokens(fmt.Sprintf(template, rawCommitDescription, structureOfRepo, ""))
@@ -276,7 +274,7 @@ func main() {
 
 	fmt.Printf("-------------\nStructure of repo:\n%s\n", structureOfRepo)
 
-	commitMessage, err := createCommitMessage(llm, structureOfRepo, diff, "")
+	commitMessage, err := createCommitMessage(llm, structureOfRepo, diff, "reformat prompt for better gpt3 output")
 	if err != nil {
 		fmt.Println(err)
 		return
