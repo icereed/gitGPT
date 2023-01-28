@@ -6,8 +6,6 @@ gitGPT is a go CLI app that utilizes the [OpenAI GPT-3 API](https://openai.com/b
 Installation
 ------------
 
-sh
-
 ```sh
 go get -u github.com/icereed/gitGPT
 ```
@@ -16,8 +14,6 @@ Usage
 -----
 
 To use gitGPT, you can simply run the following command:
-
-sh
 
 ```sh
 gitgpt --help
