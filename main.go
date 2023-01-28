@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	gpt3 "github.com/PullRequestInc/go-gpt3"
+	"github.com/spf13/cobra"
 	"v.io/x/lib/textutil"
 )
 
@@ -228,8 +229,7 @@ This is the structure of the git repository:
 Changes:
 %s
 
-Prompt: "Create a professional commit message describing this change. Keep the description accurate and to the point. Describe also the impact of this change.
-The first line must be a summary not longer than 72 characters. Don't include PR links. Use Conventional Commit messages."
+Prompt: "Create a professional commit message describing this change. Keep the description accurate and to the point. Describe also the impact of this change. The first line must be a summary not longer than 72 characters. Include the detailed description below the title. Don't include PR links. Use Conventional Commit messages."
 Answer:
 `
 	template = strings.TrimSpace(template)
@@ -270,60 +270,83 @@ Answer:
 
 func main() {
 	var err error
-	cache, err = NewCache(CACHE_FILE)
-	defer cache.Write()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	llm := gpt3.NewClient(API_KEY, gpt3.WithDefaultEngine(gpt3.TextDavinci003Engine))
+	explain := false
 
-	readme, err := readFile(filepath.Join(REPO_PATH, "README.md"))
+	rootCmd := &cobra.Command{
+		Use:   "gitgpt",
+		Short: "A tool for summarizing a Git repository using GPT-3",
+		Long:  "A tool for summarizing a Git repository using GPT-3, including the README, directory structure, and commit message",
+		Run: func(cmd *cobra.Command, args []string) {
+			cache, err = NewCache(CACHE_FILE)
+			defer cache.Write()
+			if err != nil {
+				log.Fatalln(err)
+			}
+			llm := gpt3.NewClient(API_KEY, gpt3.WithDefaultEngine(gpt3.TextDavinci003Engine))
+
+			readme, err := readFile(filepath.Join(REPO_PATH, "README.md"))
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			directories, err := getDirectories(REPO_PATH)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			diff, err := getGitDiff(REPO_PATH)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			readmeSummary, err := summarizeReadme(llm, readme)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			if explain {
+				fmt.Printf("\nSummary of README:\n%s\n-------------\n", readmeSummary)
+			}
+
+			structureOfRepo, err := generateStructureOfRepo(llm, readmeSummary, directories)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			if explain {
+				fmt.Printf("\nStructure of repo:\n%s\n-------------\n", structureOfRepo)
+			}
+
+			// diff summary
+			diffSummary, err := summarizeDiff(llm, diff)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			if explain {
+				fmt.Printf("\nSummary of diff:\n%s\n-------------\n", diffSummary)
+			}
+
+			commitMessage, err := createCommitMessage(llm, structureOfRepo, diffSummary, "")
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			fmt.Printf("\nCommit message:\n%s\n-------------\n", commitMessage)
+		},
+	}
+
+	rootCmd.Flags().BoolVarP(&explain, "explain", "e", false, "Turn on console output for intermediate results")
+
+	err = rootCmd.Execute()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
-	directories, err := getDirectories(REPO_PATH)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	diff, err := getGitDiff(REPO_PATH)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	readmeSummary, err := summarizeReadme(llm, readme)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	fmt.Printf("\nSummary of README:\n%s\n-------------\n", readmeSummary)
-
-	structureOfRepo, err := generateStructureOfRepo(llm, readmeSummary, directories)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Printf("\nStructure of repo:\n%s\n-------------\n", structureOfRepo)
-
-	// diff summary
-	diffSummary, err := summarizeDiff(llm, diff)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	fmt.Printf("\nSummary of diff:\n%s\n-------------\n", diffSummary)
-
-	commitMessage, err := createCommitMessage(llm, structureOfRepo, diffSummary, "")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	fmt.Printf("\nCommit message:\n%s\n-------------\n", commitMessage)
 }
