@@ -1,25 +1,15 @@
 gitGPT - Use GPT-3 to Create Git Commit Messages
 ================================================
 
-gitGPT is a simple Python script that utilizes the [OpenAI GPT-3 API](https://openai.com/blog/openai-api/) to generate git commit messages for you. This script can be especially useful for those who follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for their commit messages.
+gitGPT is a go CLI app that utilizes the [OpenAI GPT-3 API](https://openai.com/blog/openai-api/) to generate git commit messages for you. This app follows the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for the commit messages.
 
 Installation
 ------------
 
-To install gitGPT, please follow these steps:
+sh
 
 ```sh
-git clone https://github.com/icereed/gitGPT.git
-cd gitGPT
-pip3 install openai
-pip3 install langchain
-```
-
-In order to use gitGPT easily, you can create an alias to the `gitGPT.py` script in your `~/.zshrc` file:
-
-```sh
-echo "alias gitgpt='python3 $(pwd)/gitGPT.py'" >> ~/.zshrc
-source ~/.zshrc
+go get -u github.com/icereed/gitGPT
 ```
 
 Usage
@@ -27,7 +17,21 @@ Usage
 
 To use gitGPT, you can simply run the following command:
 
+sh
+
 ```sh
+gitgpt --help
+A tool for summarizing a Git repository using GPT-3, including the README, directory structure, and commit message
+
+Usage:
+  gitgpt [flags]
+
+Flags:
+  -e, --explain       Turn on console output for intermediate results
+  -h, --help          help for gitgpt
+      --hint string   Provide a hint for the commit message
+
+
 gitgpt --explain --hint="why did you change this?"
 ```
 
