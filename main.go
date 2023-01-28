@@ -271,7 +271,7 @@ Answer:
 func main() {
 	var err error
 	explain := false
-
+	hint := ""
 	rootCmd := &cobra.Command{
 		Use:   "gitgpt",
 		Short: "A tool for summarizing a Git repository using GPT-3",
@@ -332,7 +332,7 @@ func main() {
 				fmt.Printf("\nSummary of diff:\n%s\n-------------\n", diffSummary)
 			}
 
-			commitMessage, err := createCommitMessage(llm, structureOfRepo, diffSummary, "")
+			commitMessage, err := createCommitMessage(llm, structureOfRepo, diffSummary, hint)
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -343,7 +343,7 @@ func main() {
 	}
 
 	rootCmd.Flags().BoolVarP(&explain, "explain", "e", false, "Turn on console output for intermediate results")
-
+	rootCmd.Flags().StringVarP(&hint, "hint", "", "", "Provide a hint for the commit message")
 	err = rootCmd.Execute()
 	if err != nil {
 		fmt.Println(err)
