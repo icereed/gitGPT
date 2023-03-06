@@ -131,17 +131,21 @@ Answer:
 		fmt.Println("generateStructureOfRepo: Using cached result")
 		return string(cached), nil
 	}
-	completionRequest := gpt3.CompletionRequest{
-		Prompt:      []string{rendered},
-		Temperature: gpt3.Float32Ptr(0.9),
-		MaxTokens:   gpt3.IntPtr(2000),
-		Echo:        false,
+	completionRequest := gpt3.ChatCompletionRequest{
+		Messages: []gpt3.ChatCompletionRequestMessage{
+			{
+				Role:    "user",
+				Content: rendered,
+			},
+		},
+		Temperature: 0.9,
+		MaxTokens:   2000,
 	}
-	resp, err := llm.Completion(context.Background(), completionRequest)
+	resp, err := llm.ChatCompletion(context.Background(), completionRequest)
 	if err != nil {
 		return "", err
 	}
-	result := cleanString(resp.Choices[0].Text)
+	result := cleanString(resp.Choices[0].Message.Content)
 	cache.Set(rendered, result)
 	return result, nil
 }
@@ -171,17 +175,21 @@ git diff:
 		fmt.Println("summarizeDiff: Using cached result")
 		return string(cached), nil
 	}
-	completionRequest := gpt3.CompletionRequest{
-		Prompt:      []string{rendered},
-		Temperature: gpt3.Float32Ptr(0.9),
-		MaxTokens:   gpt3.IntPtr(outputTokens),
-		Echo:        false,
+	completionRequest := gpt3.ChatCompletionRequest{
+		Messages: []gpt3.ChatCompletionRequestMessage{
+			{
+				Role:    "user",
+				Content: rendered,
+			},
+		},
+		Temperature: 0.9,
+		MaxTokens:   outputTokens,
 	}
-	resp, err := llm.Completion(context.Background(), completionRequest)
+	resp, err := llm.ChatCompletion(context.Background(), completionRequest)
 	if err != nil {
 		return "", err
 	}
-	result := cleanString(resp.Choices[0].Text)
+	result := cleanString(resp.Choices[0].Message.Content)
 	cache.Set(rendered, result)
 	return result, nil
 }
@@ -224,13 +232,16 @@ I want you to act as an expert software developer. Your job is to create a git c
 %s
 
 This is the structure of the git repository:
+START STRUCTURE
 %s
+END STRUCTURE
 
 Changes:
+START CHANGES
 %s
+END CHANGES
 
-Prompt: "Create a professional commit message describing this change. Keep the description accurate and to the point. Describe also the impact of this change. The first line must be a summary not longer than 72 characters. Include the detailed description below the title. Don't include PR links. Use Conventional Commit messages."
-Answer:
+Create a professional commit message describing this change. Keep the description accurate and to the point. Describe also the impact of this change. The first line must be a summary not longer than 72 characters. Include the detailed description below the title. Don't include PR links. Use Conventional Commit messages.
 `
 	template = strings.TrimSpace(template)
 	// Create commit message here
@@ -255,17 +266,21 @@ Answer:
 	if err != nil {
 		log.Fatal(err)
 	}
-	completionRequest := gpt3.CompletionRequest{
-		Prompt:      []string{rendered},
-		Temperature: gpt3.Float32Ptr(0.9),
-		MaxTokens:   gpt3.IntPtr(outputTokens),
-		Echo:        false,
+	completionRequest := gpt3.ChatCompletionRequest{
+		Messages: []gpt3.ChatCompletionRequestMessage{
+			{
+				Role:    "user",
+				Content: rendered,
+			},
+		},
+		Temperature: 0.9,
+		MaxTokens:   outputTokens,
 	}
-	resp, err := llm.Completion(context.Background(), completionRequest)
+	resp, err := llm.ChatCompletion(context.Background(), completionRequest)
 	if err != nil {
 		return "", err
 	}
-	return formatGitCommitMessage(cleanString(resp.Choices[0].Text)), nil
+	return formatGitCommitMessage(cleanString(resp.Choices[0].Message.Content)), nil
 }
 
 func main() {
@@ -339,6 +354,19 @@ func main() {
 			}
 
 			fmt.Printf("\nCommit message:\n%s\n-------------\n", commitMessage)
+
+			// Write the commit message to a file: .git/gpt_commit
+
+			commitMessageFile := filepath.Join(REPO_PATH, ".git", "gpt_commit")
+			err = ioutil.WriteFile(commitMessageFile, []byte(commitMessage), 0644)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			// print out that the commit message is written to the file
+			fmt.Printf("Commit message written to %s\n", commitMessageFile)
+			// print out usage instructions
+			fmt.Printf("To use this commit message, run:\n\n\tgit commit -F %s\n\n", commitMessageFile)
 		},
 	}
 
