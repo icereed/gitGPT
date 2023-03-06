@@ -241,7 +241,13 @@ START CHANGES
 %s
 END CHANGES
 
-Create a professional commit message describing this change. Keep the description accurate and to the point. Describe also the impact of this change. The first line must be a summary not longer than 72 characters. Include the detailed description below the title. Don't include PR links. Use Conventional Commit messages.
+Create a professional commit message describing this change.
+Use a fitting level of abstraction for the summary, so that it is not too detailed but readers still understand what was done.
+Focus mainly on the WHY and not on the WHAT.
+Be short and to the point.
+The first line must be a summary not longer than 72 characters.
+Don't include PR links.
+Use Conventional Commit messages that make sense.
 `
 	template = strings.TrimSpace(template)
 	// Create commit message here
