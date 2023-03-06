@@ -155,11 +155,11 @@ func summarizeDiff(llm gpt3.Client, diff string) (string, error) {
 I want you to act as an expert software developer. I will present you a git diff.
 Your job is to explain the change file by file. Keep the explanation short and to the point.
 
-git diff:
-########
+If lines start with a comment marker (like //, # or others depending on the language) then your description should clearly state only documentation was changes.
+
+START GIT DIFF:
 %s
-########
-`
+END GIT DIFF`
 	template = strings.TrimSpace(template)
 	tokensWithoutDiff := getNumTokens(fmt.Sprintf(template, ""))
 	outputTokens := 500
@@ -171,6 +171,9 @@ git diff:
 	diff = shortenToTokens(diff, tokensLeftForDiff)
 
 	rendered := fmt.Sprintf(template, diff)
+
+	data := []byte(rendered)
+	err := ioutil.WriteFile("diff_prompt.txt", data, 0666) // For debugging
 	if cached, ok := cache.Get(rendered); ok {
 		fmt.Println("summarizeDiff: Using cached result")
 		return string(cached), nil
