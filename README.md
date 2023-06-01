@@ -16,6 +16,8 @@ Usage
 To use gitGPT, you can simply run the following command:
 
 ```sh
+export OPENAI_API_KEY=<your api key>
+
 gitgpt --help
 A tool for summarizing a Git repository using GPT-3, including the README, directory structure, and commit message
 

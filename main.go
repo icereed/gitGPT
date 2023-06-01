@@ -20,13 +20,14 @@ import (
 )
 
 const (
-	API_KEY           = "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"
 	REPO_PATH         = "."
 	MAX_TOKEN_DAVINCI = 4097
 	CACHE_FILE        = "~/.gitgpt/cache"
 )
 
 var cache *Cache
+
+var API_KEY string = os.Getenv("OPENAI_API_KEY")
 
 func readFile(filePath string) (string, error) {
 	file, err := os.Open(filePath)
