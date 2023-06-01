@@ -27,7 +27,7 @@ const (
 
 var cache *Cache
 
-var API_KEY string = os.Getenv("OPENAI_API_KEY")
+var API_KEY string
 
 func readFile(filePath string) (string, error) {
 	file, err := os.Open(filePath)
@@ -294,6 +294,11 @@ Use Conventional Commit messages that make sense.
 }
 
 func main() {
+	API_KEY = os.Getenv("OPENAI_API_KEY")
+	if API_KEY == "" {
+		log.Fatalln("OPENAI_API_KEY environment variable not set")
+	}
+
 	var err error
 	explain := false
 	hint := ""

@@ -16,6 +16,7 @@ Usage
 To use gitGPT, you can simply run the following command:
 
 ```sh
+# get your API key here: https://platform.openai.com/account/api-keys
 export OPENAI_API_KEY=<your api key>
 
 gitgpt --help
